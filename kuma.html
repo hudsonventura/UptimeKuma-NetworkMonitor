@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor List</title>
+    <!-- Link do Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <style>
+        /* Estilos gerais da tabela */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        td {
+            padding: 10px;
+            text-align: left;
+            border: 1px solid #333;
+        }
+
+        /* Estilo para status 0 */
+        .status-offline {
+            background-color: #ff4d4d; /* Tom de vermelho mais suave */
+            color: white;
+        }
+
+        /* Estilo para status 3 */
+        .status-maintenance {
+            background-color: #0080ff; /* Amarelo suave */
+            color: white;
+        }
+
+        /* Estilo para status 1 (opcional) */
+        .status-online {
+            background-color: #d9ffd9; /* Verde suave */
+            color: grey;
+        }
+
+
+    </style>
+</head>
+<body>
+    <div class="container" style="max-width: 1260px;">
+        <div class="d-flex align-items-center">
+            <h1 class="mt-5 me-auto">Network Monitor</h1>
+            <div class="clock display-6"></div>
+        </div>
+        <table class="table mt-3" data-bs-theme="dark">
+            <thead>
+                <tr>
+                    <th>Groupo</th>
+                    <th>Monitor</th>
+                    <th>Type</th>
+                    <th>URL</th>
+                    <th>Hearth Beat</th>
+                </tr>
+            </thead>
+            <tbody id="monitor-table-body">
+                <!-- Conteúdo será preenchido pelo JS -->
+            </tbody>
+        </table>    
+    </div>
+
+    <script>
+        // Fun o para atualizar o rel gio
+        function updateClock() {
+            const clock = document.querySelector('.clock');
+            const now = new Date();
+            const time = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            const date = now.toLocaleDateString('pt-BR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+            clock.innerText = `${date} ${time}`;
+        }
+
+        // Atualiza o rel gio a cada 1 segundo
+        setInterval(updateClock, 1000);
+
+        // Atualiza o rel gio na primeira execu o
+        updateClock();
+    </script>
+
+    <script>
+        // Função para preencher a tabela com os dados do JSON
+        function populateTable(monitores, heartbeats) {
+            const tableBody = document.getElementById('monitor-table-body');
+            var heartbeatList = heartbeats.heartbeatList;
+
+
+            // Mapeia os monitores para criar uma lista que inclui o status do heartbeat
+            const monitorsWithStatus = [];
+            
+            Object.entries(heartbeats.uptimeList)
+                .sort(([, valueA], [, valueB]) => valueA - valueB) // Ordena pelos valores
+                .forEach(([key_complete, percent]) => {
+                    var key = key_complete.split('_')[0]; 
+                    //console.log(`${key} - ${value}`);
+
+                    monitores.publicGroupList.forEach(group => {
+                        group.monitorList.forEach(monitor => {
+                            const status = heartbeatList[monitor.id] ? heartbeatList[monitor.id][0].status : null;
+
+                            if(key == monitor.id) {
+                                monitorsWithStatus.push({ monitor, status, group, percent });
+                            }
+                            
+                        });
+                    });
+                });
+
+                console.log(monitores.publicGroupList);
+
+            
+            
+
+
+
+            // Itera sobre a lista ordenada de monitores
+            monitorsWithStatus.forEach(({ monitor, status, group, percent }) => {
+                const row = document.createElement('tr');
+
+                // Adiciona uma classe de estilo se o status for 0
+                if (status === 0) {
+                    //row.classList.add('status-offline');
+                }
+
+                // Adiciona uma classe de estilo se o status for 3
+                if (status === 3) {
+                    //row.classList.add('status-maintenance');
+                }
+
+                // Adiciona uma classe de estilo se o status for 1
+                if (status === 1) {
+                    //row.classList.add('status-online');
+                }
+
+                // Coluna do grupo (dado o contexto, você pode querer obter o nome do grupo aqui)
+                const groupCell = document.createElement('td');
+                
+                groupCell.textContent = group.name; // Ajuste isso conforme necessário
+                row.appendChild(groupCell);
+
+
+                // Coluna do monitor (nome)
+                const monitorCell = document.createElement('td');
+                monitorCell.textContent = monitor.name + " ";
+                const value = percent * 100;
+                const badge = document.createElement('span');
+                badge.classList.add('badge');
+                if (value > 99) {
+                    badge.classList.add('text-bg-success');
+                } else if (value > 95) {
+                    badge.classList.add('text-bg-warning');
+                } else {
+                    badge.classList.add('text-bg-danger');
+                }
+                badge.textContent = value.toFixed(2)+'%';
+                monitorCell.appendChild(badge);
+                row.appendChild(monitorCell);
+
+                // Coluna do tipo (type)
+                const typeCell = document.createElement('td');
+                typeCell.textContent = monitor.type;
+                row.appendChild(typeCell);
+
+                // Coluna da URL (url, se aplicável)
+                const urlCell = document.createElement('td');
+                if (monitor.url) {
+                    const link = document.createElement('a');
+                    link.href = monitor.url;
+                    link.textContent = monitor.url;
+                    link.target = '_blank'; // Abre em uma nova aba
+                    urlCell.appendChild(link);
+                } else {
+                    urlCell.textContent = null;
+                }
+                row.appendChild(urlCell);
+
+                var beats = heartbeatList[monitor.id];
+
+                // Coluna do status do heartbeat
+                const heartBeatCell = document.createElement('td');
+                const bars = [];
+                for (let i = 0; i <= beats.length - 1; i++) {
+                    const bar = document.createElement('span');
+                    bar.style.display = 'inline-block';
+                    bar.style.width = '4px';
+                    bar.style.height = '20px';
+                    bar.style.marginRight = '2px';
+                    bar.style.marginTop = '5px';
+                    bar.style.marginBottom = 0;
+
+                    switch (beats[i].status) {
+                        case 0:
+                            bar.style.backgroundColor = '#ff0000';
+                            break;
+                        case 1:
+                            bar.style.backgroundColor = '#02df5a';
+                            break;
+
+                        case 2:
+                            bar.style.backgroundColor = '#cccc11';
+                            break;
+                        case 3:
+                            bar.style.backgroundColor = '#0080ff';
+                            break;
+                    }
+                    bar.style.borderRadius = '20%';  // Rounded corners
+                    bar.title = beats[i].time;
+                    bars.push(bar);
+                }
+                heartBeatCell.append(...bars);
+                row.appendChild(heartBeatCell);
+
+                // Adicionar a linha à tabela
+                tableBody.appendChild(row);
+            });
+        }
+
+
+            // Função para buscar os dados da API
+            function fetchMonitores() {
+                return fetch('http://localhost/api/status-page/monitor')  // Retorna a Promise do fetch
+                    .then(response => response.json())  // Converte a resposta em JSON
+                    .then(data => {
+                        //console.log(data);
+                        // Retorna os dados para serem usados fora da função
+                        return data;
+                    })
+                    .catch(error => {
+                        console.error('Erro ao buscar os dados:', error);
+                        throw error;  // Lança o erro para ser tratado na chamada
+                    });
+            }
+
+            function fetchHeartBeats() {
+                return fetch('http://localhost/api/status-page/heartbeat/monitor')  // Retorna a Promise do fetch
+                    .then(response => response.json())  // Converte a resposta em JSON
+                    .then(data => {
+                        //console.log(data);
+                        // Retorna os dados para serem usados fora da função
+                        return data;
+                    })
+                    .catch(error => {
+                        console.error('Erro ao buscar os dados:', error);
+                        throw error;  // Lança o erro para ser tratado na chamada
+                    });
+            }
+
+            // Chama a função para buscar os dados quando a página carrega
+            window.onload = async function() {
+                try {
+                    var monitores = await fetchMonitores();  // Aguarda a conclusão da chamada assíncrona
+                    var heartBeats = await fetchHeartBeats();  // Chama a próxima função após obter os dados
+                    populateTable(monitores,heartBeats);  // Usa os dados recebidos
+                } catch (error) {
+                    console.error('Erro ao carregar dados:', error);
+                }
+            };
+
+
+
+
+    </script>
+
+    <!-- Script do Bootstrap -->
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
